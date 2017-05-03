@@ -5,10 +5,14 @@ import tkinter as tk
 from ColorTrans import ColorTrans
 
 class SamplePreviewer(tk.Frame):
-	def __init__(self, parent, oper_img, r_theta_img):
+	def __init__(self, parent, oper_img, r_theta_img, center, dtheta, dr):
 		super(SamplePreviewer, self).__init__(parent)
-		self.oper_img = oper_img
-		self.r_theta_img = r_theta_img
+		self.parent = parent
+		self.oper_img = ImageTk.PhotoImage(oper_img)
+		self.r_theta_img = ImageTk.PhotoImage(r_theta_img)
+		self.dtheta = dtheta
+		self.dr = dr
+		self.center = center
 
 		self.setupUI()
 		self.setupEvent()
@@ -17,26 +21,30 @@ class SamplePreviewer(tk.Frame):
 		self.tframe = tk.Frame(self)
 		self.tframe.pack(side=tk.TOP)
 
+		self.mframe = tk.Frame(self)
+		self.mframe.pack(side=tk.TOP)
+		
 		tk.Button(self.tframe, text="Leave", command=self.parent.destroy).pack(side=tk.LEFT)
-
-		self.canvas = tk.Canvas(self, width=self.tkimg.width(), height=self.tkimg.height(), relief='ridge', borderwidth=0)
+		
+		self.canvas = tk.Canvas(self.mframe, width=self.oper_img.width(), height=self.oper_img.height(), relief='ridge', borderwidth=0)
 		self.canvas.config(highlightthickness=0, borderwidth=0,closeenough=0)
 		
-		self.canvas.create_image((0,0), anchor=tk.NW, image=self.tkimg)
-		self.canvas.create_oval(0,0, self.box_w, self.box_w, fill="#ff0000", tags='box')
-		self.canvas.create_rectangle(0,0, 0, 0, outline="#000000", width=5, tags='select')
-		self.canvas.pack(padx=10, pady=10, side=tk.TOP)
-		
+		self.canvas.create_image((0,0), anchor=tk.NW, image=self.oper_img)
+		self.canvas.pack(padx=10, pady=10, side=tk.LEFT)
+
+		self.r_theta_img_label = tk.Label(self.mframe, image=self.r_theta_img)
+		self.r_theta_img_label.pack(side=tk.LEFT)
 
 	
 	def setupEvent(self):
-		
-	
+		pass
+
+
 class TCWidget(tk.Frame):
 	def __init__(self, parent, imgfile):
 		super(TCWidget, self).__init__(parent)
 		self.parent = parent
-
+		
 		self.box_w=5
 		self.box_s=int(self.box_w/2)
 		self.dragging = False
@@ -45,7 +53,7 @@ class TCWidget(tk.Frame):
 		self.color_trans = ColorTrans()
 		self.dr=2.0
 		self.dtheta=5.0
-			
+		
 		self.imgfile = imgfile
 		self.img = Image.open(self.imgfile)
 		self.pixel = np.array(self.img)
@@ -123,12 +131,11 @@ class TCWidget(tk.Frame):
 		self.r_theta_img.save("r_theta.png")
 		self.oper_img.save("operation.png")
 		
-
-		self.oper_img.show()
-		self.r_theta_img.show()
+		preview = tk.Toplevel(self)
+		SamplePreviewer(preview, self.oper_img, self.r_theta_img, self.center, self.dtheta, self.dr).pack()
+		#self.oper_img.show()
+		#self.r_theta_img.show()
 		print("Done")
-
-		
 
 	def extractData(self):
 		self.updateCropSize()
@@ -157,11 +164,13 @@ class TCWidget(tk.Frame):
 
 		
 
-imgfile = sys.argv[1]
+if __name__ == '__main__':
 
-view = tk.Tk()
-view.title("Center selector")
-TCWidget(view, imgfile).pack()
+	imgfile = sys.argv[1]
 
-view.mainloop()
+	view = tk.Tk()
+	view.title("Center selector")
+	TCWidget(view, imgfile).pack()
+
+	view.mainloop()
 
