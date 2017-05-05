@@ -3,9 +3,9 @@ from PIL import Image, ImageTk
 import numpy as np
 import tkinter as tk
 from ColorTrans import ColorTrans
+from DrawSection import drawSection
 
 rad2deg = 180.0 / np.pi
-
 class SamplePreviewer(tk.Frame):
 	def __init__(self, parent, oper_img, r_theta_img, center, dtheta, dr):
 		super(SamplePreviewer, self).__init__(parent)
@@ -16,8 +16,10 @@ class SamplePreviewer(tk.Frame):
 		self.dr = dr
 		self.center = center
 		self.sec_r = ( self.oper_img.width() ** 2.0 + self.oper_img.height() ** 2.0 ) ** 0.5
-		self.sec_len = 360.0/dtheta
+		self.sec_len = int(360.0/dtheta)
 		self.box_h = self.r_theta_img.height() / self.sec_len
+
+		self.sec_imgs = [None for _ in range(self.sec_len)]
 
 		self.setupUI()
 		self.setupEvent()
@@ -30,13 +32,19 @@ class SamplePreviewer(tk.Frame):
 
 		self.mframe = tk.Frame(self)
 		self.mframe.pack(side=tk.TOP)
+
+		self.mlframe = tk.Frame(self.mframe); self.mlframe.pack(side=tk.LEFT)
+		self.mrframe = tk.Frame(self.mframe); self.mrframe.pack(side=tk.LEFT)
 		
 		tk.Button(self.tframe, text="Leave", command=self.parent.destroy).pack(side=tk.LEFT)
 
 		self.status = tk.StringVar()
 		tk.Label(self, font="size, 20", textvariable=self.status, height=1).pack(side=tk.LEFT)
 
-		self.canvas = tk.Canvas(self.mframe, width=self.oper_img.width(), height=self.oper_img.height(), relief='ridge', borderwidth=0)
+		self.drawsec = tk.Label(self.mrframe, image=None)
+		self.drawsec.pack(side=tk.TOP)
+
+		self.canvas = tk.Canvas(self.mlframe, width=self.oper_img.width(), height=self.oper_img.height(), relief='ridge', borderwidth=0)
 		self.canvas.config(highlightthickness=0, borderwidth=0,closeenough=0)
 		
 		self.canvas.create_image((0,0), anchor=tk.NW, image=self.oper_img)
@@ -44,12 +52,28 @@ class SamplePreviewer(tk.Frame):
 		self.canvas.pack(padx=10, pady=10, side=tk.LEFT)
 
 
-		self.c_rtheta = tk.Canvas(self.mframe, width=self.r_theta_img.width(), height=self.r_theta_img.height(), relief='ridge', borderwidth=0)
+		self.c_rtheta = tk.Canvas(self.mrframe, width=self.r_theta_img.width(), height=self.r_theta_img.height(), relief='ridge', borderwidth=0)
 		self.c_rtheta.config(highlightthickness=0, borderwidth=0,closeenough=0)
 		self.c_rtheta.create_image((0,0), anchor=tk.NW, image=self.r_theta_img)
 		self.c_rtheta.create_rectangle(0,0,0,0, outline="#ffffff", width=1, tags='box')
 		self.c_rtheta.pack(side=tk.LEFT)
 
+	def setupEvent(self):
+		self.canvas.bind("<Button-1>", self.drawSection)
+		self.c_rtheta.bind("<Button-1>", self.drawSection)
+		
+		self.canvas.bind("<Motion>", self.detectSectionCanvas)
+		self.c_rtheta.bind("<Motion>", self.detectSectionRThetaCanvas)
+
+	def drawSection(self, evt):
+		global drawSection
+		if self.sec_imgs[self.light] is None:
+			savename = 'img/sec_%03d.png' % (self.light,)
+			drawSection('data/sec_%03d.bin' % (self.light,), savename)
+			self.sec_imgs[self.light] = ImageTk.PhotoImage(Image.open(savename))
+
+		self.drawsec.configure(image=self.sec_imgs[self.light])
+		
 
 	def detectSectionCanvas(self, evt):
 		global rad2deg
@@ -60,12 +84,12 @@ class SamplePreviewer(tk.Frame):
 		if dx < 0:  # over 180 degree
 			theta = 360.0 - theta
 
-		light = np.round(theta / self.dtheta)
+		light = int(np.round(theta / self.dtheta))
 		self.status.set("deg: %d" % theta)
 		self.lightSection(light)
 
 	def detectSectionRThetaCanvas(self, evt):
-		light = np.round(evt.y / self.box_h)
+		light = int(np.round(evt.y / self.box_h))
 		self.status.set("deg: %d" % (int(light * self.dtheta)))
 		self.lightSection(light)
 
@@ -77,10 +101,6 @@ class SamplePreviewer(tk.Frame):
 			endy =  self.center[1] - self.sec_r * np.cos(light * self.dtheta / rad2deg)
 			self.canvas.coords('section', self.center[0], self.center[1], endx, endy)
 			self.c_rtheta.coords('box', 0, self.box_h * light - 1, self.r_theta_img.width(), self.box_h * (light+1) + 1)
-
-	def setupEvent(self):
-		self.canvas.bind("<Motion>", self.detectSectionCanvas)
-		self.c_rtheta.bind("<Motion>", self.detectSectionRThetaCanvas)
 
 
 class TCWidget(tk.Frame):
