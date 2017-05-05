@@ -4,6 +4,8 @@ import numpy as np
 import tkinter as tk
 from ColorTrans import ColorTrans
 
+rad2deg = 180.0 / np.pi
+
 class SamplePreviewer(tk.Frame):
 	def __init__(self, parent, oper_img, r_theta_img, center, dtheta, dr):
 		super(SamplePreviewer, self).__init__(parent)
@@ -13,9 +15,14 @@ class SamplePreviewer(tk.Frame):
 		self.dtheta = dtheta
 		self.dr = dr
 		self.center = center
+		self.sec_r = ( self.oper_img.width() ** 2.0 + self.oper_img.height() ** 2.0 ) ** 0.5
+		self.sec_len = 360.0/dtheta
+		self.box_h = self.r_theta_img.height() / self.sec_len
 
 		self.setupUI()
 		self.setupEvent()
+
+		self.light = 0
 
 	def setupUI(self):
 		self.tframe = tk.Frame(self)
@@ -25,19 +32,55 @@ class SamplePreviewer(tk.Frame):
 		self.mframe.pack(side=tk.TOP)
 		
 		tk.Button(self.tframe, text="Leave", command=self.parent.destroy).pack(side=tk.LEFT)
-		
+
+		self.status = tk.StringVar()
+		tk.Label(self, font="size, 20", textvariable=self.status, height=1).pack(side=tk.LEFT)
+
 		self.canvas = tk.Canvas(self.mframe, width=self.oper_img.width(), height=self.oper_img.height(), relief='ridge', borderwidth=0)
 		self.canvas.config(highlightthickness=0, borderwidth=0,closeenough=0)
 		
 		self.canvas.create_image((0,0), anchor=tk.NW, image=self.oper_img)
+		self.canvas.create_line(0,0,0,0, fill='red', tags='section')
 		self.canvas.pack(padx=10, pady=10, side=tk.LEFT)
 
-		self.r_theta_img_label = tk.Label(self.mframe, image=self.r_theta_img)
-		self.r_theta_img_label.pack(side=tk.LEFT)
 
-	
+		self.c_rtheta = tk.Canvas(self.mframe, width=self.r_theta_img.width(), height=self.r_theta_img.height(), relief='ridge', borderwidth=0)
+		self.c_rtheta.config(highlightthickness=0, borderwidth=0,closeenough=0)
+		self.c_rtheta.create_image((0,0), anchor=tk.NW, image=self.r_theta_img)
+		self.c_rtheta.create_rectangle(0,0,0,0, outline="#ffffff", width=1, tags='box')
+		self.c_rtheta.pack(side=tk.LEFT)
+
+
+	def detectSectionCanvas(self, evt):
+		global rad2deg
+		dx = evt.x - self.center[0]
+		dy = evt.y - self.center[1]
+
+		theta = np.arccos(- dy / (dx**2.0 + dy**2.0) ** 0.5) * rad2deg
+		if dx < 0:  # over 180 degree
+			theta = 360.0 - theta
+
+		light = np.round(theta / self.dtheta)
+		self.status.set("deg: %d" % theta)
+		self.lightSection(light)
+
+	def detectSectionRThetaCanvas(self, evt):
+		light = np.round(evt.y / self.box_h)
+		self.status.set("deg: %d" % (int(light * self.dtheta)))
+		self.lightSection(light)
+
+
+	def lightSection(self, light):
+		if self.light != light:
+			self.light = light
+			endx =  self.center[0] + self.sec_r * np.sin(light * self.dtheta / rad2deg)
+			endy =  self.center[1] - self.sec_r * np.cos(light * self.dtheta / rad2deg)
+			self.canvas.coords('section', self.center[0], self.center[1], endx, endy)
+			self.c_rtheta.coords('box', 0, self.box_h * light - 1, self.r_theta_img.width(), self.box_h * (light+1) + 1)
+
 	def setupEvent(self):
-		pass
+		self.canvas.bind("<Motion>", self.detectSectionCanvas)
+		self.c_rtheta.bind("<Motion>", self.detectSectionRThetaCanvas)
 
 
 class TCWidget(tk.Frame):
@@ -122,10 +165,10 @@ class TCWidget(tk.Frame):
 		print("Extract Data"); sys.stdout.flush()
 		self.extractData()
 		d = self.color_trans.color2tempArray(self.cdata).astype(np.float32)
-		d.tofile("test.bin")
+		d.tofile("data/total.bin")
 		for i in range(d.shape[0]):
-			d[i,:].tofile("test%03d.bin"%(i,))
-		print("Image from array..."); sys.stdout.flush()
+			d[i,:].tofile("data/sec_%03d.bin"%(i,))
+		print("Image from array...", end=''); sys.stdout.flush()
 		self.r_theta_img = Image.fromarray(self.color_trans.temp2colorArray(d))
 		self.r_theta_img = self.r_theta_img.resize((self.r_theta_img.width*4, self.r_theta_img.height*4), Image.BOX)
 		self.r_theta_img.save("r_theta.png")
@@ -133,8 +176,6 @@ class TCWidget(tk.Frame):
 		
 		preview = tk.Toplevel(self)
 		SamplePreviewer(preview, self.oper_img, self.r_theta_img, self.center, self.dtheta, self.dr).pack()
-		#self.oper_img.show()
-		#self.r_theta_img.show()
 		print("Done")
 
 	def extractData(self):
@@ -151,8 +192,8 @@ class TCWidget(tk.Frame):
 			theta = (self.dtheta * i) * np.pi / 180.0
 			for j in range(self.cdata.shape[1]):
 				r = self.dr * j
-				posx = int(self.center[0] + r * np.cos(theta))
-				posy = int(self.center[1] - r * np.sin(theta))
+				posx = int(self.center[0] + r * np.sin(theta))
+				posy = int(self.center[1] - r * np.cos(theta))
 				if not ( posx >= self.xlim[0] and posx < self.xlim[1] \
 					 and posy >= self.ylim[0] and posy < self.ylim[1]):
 					continue
