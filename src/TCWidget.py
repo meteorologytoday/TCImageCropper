@@ -2,8 +2,10 @@ import sys
 from PIL import Image, ImageTk
 import numpy as np
 import tkinter as tk
+from tkinter import filedialog
 from ColorTrans import ColorTrans
 from DrawSection import drawSection
+
 
 rad2deg = 180.0 / np.pi
 class SamplePreviewer(tk.Frame):
@@ -227,7 +229,15 @@ class TCWidget(tk.Frame):
 
 if __name__ == '__main__':
 
-	imgfile = sys.argv[1]
+	if len(sys.argv) >= 2:
+		imgfile = sys.argv[1]
+	else:
+		root = tk.Tk()
+		root.withdraw()
+		imgfile = filedialog.askopenfilename()
+		root.destroy()
+
+	print(imgfile)
 
 	view = tk.Tk()
 	view.title("Center selector")

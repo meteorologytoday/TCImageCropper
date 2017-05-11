@@ -42,7 +42,7 @@ def drawSection(filename, savename):
 	ax.set_ylim([150, 290])
 
 	x = np.arange(0, len(data))
-
+	ax.set_title(filename)
 	ax.plot(x, data)
 	fig.savefig(savename, dpi=figdpi)
 	
