@@ -191,8 +191,8 @@ class TCWidget(tk.Frame):
 		print("Image from array...", end=''); sys.stdout.flush()
 		self.r_theta_img = Image.fromarray(self.color_trans.temp2colorArray(d))
 		self.r_theta_img = self.r_theta_img.resize((self.r_theta_img.width*4, self.r_theta_img.height*4), Image.BOX)
-		self.r_theta_img.save("r_theta.png")
-		self.oper_img.save("operation.png")
+		self.r_theta_img.save("img/r_theta.png")
+		self.oper_img.save("img/operation.png")
 		
 		preview = tk.Toplevel(self)
 		SamplePreviewer(preview, self.oper_img, self.r_theta_img, self.center, self.dtheta, self.dr).pack()
